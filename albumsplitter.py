@@ -15,17 +15,30 @@ class AlbumSplitterApp:
         tk.Button(root, text="Load Album File", command=self.load_album).pack(pady=5)
         tk.Button(root, text="Select Album Cover", command=self.select_album_cover).pack(pady=5)
 
-        # Track list frame
-        self.track_frame = tk.Frame(root)
-        self.track_frame.pack(pady=10)
+        # Create canvas with scrollbar for scrollable track list
+        self.canvas = tk.Canvas(root)
+        self.scrollbar = tk.Scrollbar(root, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = tk.Frame(self.canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        )
+
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        # Pack canvas and scrollbar
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
 
         self.add_track(0)  # Start with the first track by default
 
-        # Add track, apply album to all tracks, and apply artist to all tracks
+        # Buttons for adding tracks and applying settings to all tracks
         tk.Button(root, text="Add Track", command=self.add_track).pack(pady=5)
         tk.Button(root, text="Apply Album to All Tracks", command=self.apply_album_to_all).pack(pady=5)
         tk.Button(root, text="Apply Artist to All Tracks", command=self.apply_artist_to_all).pack(pady=5)
-
+        
         # Split button
         tk.Button(root, text="Split Album", command=self.split_album).pack(pady=10)
 
@@ -44,7 +57,7 @@ class AlbumSplitterApp:
 
     def add_track(self, start_time=0):
         track_num = len(self.tracks) + 1
-        track_frame = tk.Frame(self.track_frame, borderwidth=1, relief="solid", pady=5)
+        track_frame = tk.Frame(self.scrollable_frame, borderwidth=1, relief="solid", pady=5)
         track = {
             "frame": track_frame,
             "track_num": tk.Label(track_frame, text=f"Track {track_num}:"),
