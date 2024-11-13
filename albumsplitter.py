@@ -28,6 +28,9 @@ class AlbumSplitterApp:
         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
+        # Enable scrolling with mouse wheel
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
         # Pack canvas and scrollbar
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
@@ -41,6 +44,10 @@ class AlbumSplitterApp:
         
         # Split button
         tk.Button(root, text="Split Album", command=self.split_album).pack(pady=10)
+
+    def _on_mousewheel(self, event):
+        # Adjust the canvas yview by a small step with the mouse wheel scroll
+        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def load_album(self):
         file_path = filedialog.askopenfilename(title="Select Album File", filetypes=[("Audio Files", "*.mp3 *.wav *.flac")])
