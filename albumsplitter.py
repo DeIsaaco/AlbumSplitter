@@ -5,6 +5,7 @@ from pydub import AudioSegment
 import os
 from mutagen.id3 import ID3, APIC, TIT2, TALB, TPE1, TRCK
 from mutagen.mp3 import MP3
+import time
 
 class AlbumSplitterApp:
     def __init__(self, root):
@@ -199,14 +200,29 @@ class AlbumSplitterApp:
             end_ms = track_times[i + 1] * 1000
 
             track_audio = self.album_audio[start_ms:end_ms]
-            temp_output_path = os.path.join(output_folder, f"{track_titles[i]}_temp.mp3")
             final_output_path = os.path.join(output_folder, f"{track_titles[i]}.mp3")
 
-            # Export without cover
-            track_audio.export(temp_output_path, format="mp3")
+            # Ensure the output directory exists
+            os.makedirs(os.path.dirname(final_output_path), exist_ok=True)
+
+            # Normalize paths
+            final_output_path = os.path.normpath(final_output_path)
+
+            # Export the track without metadata or cover
+            track_audio.export(final_output_path, format="mp3")
+
+            # Ensure the file exists before proceeding
+            for _ in range(10):  # Try for up to 10 iterations (approx. 1 second)
+                if os.path.exists(final_output_path):
+                    break
+                time.sleep(0.1)  # Wait 100ms before checking again
+
+            if not os.path.exists(final_output_path):
+                messagebox.showerror("Error", f"Failed to create output file: {final_output_path}")
+                return
 
             # Embed metadata and album cover using mutagen
-            audio = MP3(temp_output_path, ID3=ID3)
+            audio = MP3(final_output_path, ID3=ID3)
 
             try:
                 audio.add_tags()
@@ -230,12 +246,13 @@ class AlbumSplitterApp:
                         )
                     )
 
-            audio.save(final_output_path)
-            os.remove(temp_output_path)  # Remove temporary file
+            # Save the file with metadata
+            audio.save()
 
             print(f"Exported {track_titles[i]} with cover")
 
         messagebox.showinfo("Done", "Album has been split successfully!")
+
 
 # Run the application
 root = tk.Tk()
