@@ -7,6 +7,7 @@ from mutagen.id3 import ID3, APIC, TIT2, TALB, TPE1, TRCK
 from mutagen.mp3 import MP3
 import time
 import re
+
 class AlbumSplitterApp:
     def __init__(self, root):
         self.root = root
