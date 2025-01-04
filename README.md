@@ -4,7 +4,7 @@ Splits an album's mp3 file into its individual songs.
 # Install (Windows instructions, if you're on linux, you should know how to do this anyways)
 1. Install python (https://www.python.org/ftp/python/3.13.0/python-3.13.0-amd64.exe)
 2. Open command prompt (Windows key, type cmd, press enter)
-3. In the window that pops up, type "pip install pydub" without the quotation marks.
+3. In the window that pops up, type "pip install -r requirements.txt" without the quotation marks.
 4. Install FFmpeg (https://www.youtube.com/watch?v=JR36oH35Fgg)
 5. Run the albumsplitter.py file
 
