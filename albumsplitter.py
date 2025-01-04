@@ -6,7 +6,7 @@ import os
 from mutagen.id3 import ID3, APIC, TIT2, TALB, TPE1, TRCK
 from mutagen.mp3 import MP3
 import time
-
+import re  # Add this import at the top if not already present
 class AlbumSplitterApp:
     def __init__(self, root):
         self.root = root
@@ -180,6 +180,14 @@ class AlbumSplitterApp:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to embed album cover: {e}")
 
+    def sanitize_filename(self, filename):
+        """
+        Remove characters that are invalid for file names.
+        """
+        import re
+        return re.sub(r'[<>:"/\\|?*\n]', ' ', filename)
+
+
     def split_album(self):
         if not self.album_audio:
             messagebox.showerror("No Album Loaded", "Please load an album file first.")
@@ -193,14 +201,14 @@ class AlbumSplitterApp:
         track_times = []
         track_titles = []
         track_albums = []
-        track_artists = []  # List to store artist for each track
+        track_artists = []
         track_numbers = []
 
         for track in self.tracks:
             start_time_str = track["start_time"].get()
-            title = track["title"].get()
-            album = track["album"].get()
-            artist = track["artist"].get()  # Retrieve artist name
+            title = self.sanitize_filename(track["title"].get())  # Use self.sanitize_filename
+            album = self.sanitize_filename(track["album"].get())
+            artist = self.sanitize_filename(track["artist"].get())
             track_number = track["track_number"].get()
 
             start_time_sec = self.parse_time(start_time_str)
@@ -211,7 +219,7 @@ class AlbumSplitterApp:
             track_times.append(start_time_sec)
             track_titles.append(title)
             track_albums.append(album)
-            track_artists.append(artist)  # Append artist name to list
+            track_artists.append(artist)
             track_numbers.append(track_number)
 
         # Add the end time as the end of the album
@@ -224,27 +232,12 @@ class AlbumSplitterApp:
 
             track_audio = self.album_audio[start_ms:end_ms]
             final_output_path = os.path.join(output_folder, f"{track_titles[i]}.mp3")
-
-            # Ensure the output directory exists
-            os.makedirs(os.path.dirname(final_output_path), exist_ok=True)
-
-            # Normalize paths
             final_output_path = os.path.normpath(final_output_path)
 
-            # Export the track without metadata or cover
+            os.makedirs(os.path.dirname(final_output_path), exist_ok=True)
             track_audio.export(final_output_path, format="mp3")
 
-            # Ensure the file exists before proceeding
-            for _ in range(10):  # Try for up to 10 iterations (approx. 1 second)
-                if os.path.exists(final_output_path):
-                    break
-                time.sleep(0.1)  # Wait 100ms before checking again
-
-            if not os.path.exists(final_output_path):
-                messagebox.showerror("Error", f"Failed to create output file: {final_output_path}")
-                return
-
-            # Embed metadata and album cover using mutagen
+            # Embed metadata and album cover
             audio = MP3(final_output_path, ID3=ID3)
 
             try:
@@ -260,12 +253,11 @@ class AlbumSplitterApp:
             if self.album_cover:
                 self.embed_cover(audio, self.album_cover)
 
-            # Save the file with metadata
-            audio.save(v2_version=3)  # Save as ID3v2.3 for better compatibility
-
-            print(f"Exported {track_titles[i]} with cover")
+            audio.save(v2_version=3)  # Save as ID3v2.3
 
         messagebox.showinfo("Done", "Album has been split successfully!")
+
+
 
 # Run the application
 root = tk.Tk()
