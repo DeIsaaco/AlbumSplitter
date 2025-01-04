@@ -53,7 +53,7 @@ class AlbumSplitterApp:
         tk.Button(root, text="Add Track", command=self.add_track).pack(pady=5)
         tk.Button(root, text="Apply Album to All Tracks", command=self.apply_album_to_all).pack(pady=5)
         tk.Button(root, text="Apply Artist to All Tracks", command=self.apply_artist_to_all).pack(pady=5)
-        
+
         # Split button
         tk.Button(root, text="Split Album", command=self.split_album).pack(pady=10)
 
@@ -84,7 +84,6 @@ class AlbumSplitterApp:
             self.cover_canvas.create_image(100, 100, image=self.cover_image)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load album cover: {e}")
-
 
     def add_track(self, start_time=0):
         track_num = len(self.tracks) + 1
@@ -156,6 +155,30 @@ class AlbumSplitterApp:
             return minutes * 60 + seconds
         except ValueError:
             return None
+
+    def embed_cover(self, audio, cover_path):
+        try:
+            # Resize and determine MIME type
+            image = Image.open(cover_path)
+            image = image.resize((600, 600), Image.Resampling.LANCZOS)
+            resized_path = "resized_cover.jpg"
+            image.save(resized_path, format="JPEG")  # Save as JPEG
+            mime_type = "image/jpeg"
+
+            # Add album cover
+            with open(resized_path, "rb") as img:
+                audio.tags.add(
+                    APIC(
+                        encoding=3,
+                        mime=mime_type,
+                        type=3,  # Front cover
+                        desc="Cover",
+                        data=img.read(),
+                    )
+                )
+            print("Cover embedded successfully.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to embed album cover: {e}")
 
     def split_album(self):
         if not self.album_audio:
@@ -235,24 +258,14 @@ class AlbumSplitterApp:
             audio["TRCK"] = TRCK(encoding=3, text=track_numbers[i])
 
             if self.album_cover:
-                with open(self.album_cover, "rb") as img:
-                    audio.tags.add(
-                        APIC(
-                            encoding=3,  # UTF-8
-                            mime="image/jpeg",  # Or "image/png"
-                            type=3,  # Front cover
-                            desc="Cover",
-                            data=img.read(),
-                        )
-                    )
+                self.embed_cover(audio, self.album_cover)
 
             # Save the file with metadata
-            audio.save()
+            audio.save(v2_version=3)  # Save as ID3v2.3 for better compatibility
 
             print(f"Exported {track_titles[i]} with cover")
 
         messagebox.showinfo("Done", "Album has been split successfully!")
-
 
 # Run the application
 root = tk.Tk()
