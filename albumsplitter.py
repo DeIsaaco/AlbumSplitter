@@ -159,21 +159,18 @@ class AlbumSplitterApp:
 
     def embed_cover(self, audio, cover_path):
         try:
-            # Resize and determine MIME type
+            # Determine mime type, save as jpg
             image = Image.open(cover_path)
-            image = image.resize((600, 600), Image.Resampling.LANCZOS)
-            resized_path = "resized_cover.jpg"
-            image.save(resized_path, format="JPEG")  # Save as JPEG
+            image.save(cover_path, format="JPEG")  # Save as JPEG
             mime_type = "image/jpeg"
 
             # Add album cover
-            with open(resized_path, "rb") as img:
+            with open(cover_path, "rb") as img:
                 audio.tags.add(
                     APIC(
                         encoding=3,
                         mime=mime_type,
                         type=3,  # Front cover
-                        desc="Cover",
                         data=img.read(),
                     )
                 )
