@@ -10,14 +10,79 @@ from mutagen.mp3 import MP3
 import time
 import re
 
+
 class AlbumSplitterApp:
+    def update_lengths_and_start_times(self, changed_track_index=None, is_length_change=False):
+        total_tracks = len(self.tracks)
+
+        # Find the manually marked last track (if any)
+        last_track_index = next(
+            (i for i, track in enumerate(self.tracks) if track.get("last_track_checkbox") and track["last_track_checkbox"].var.get() == 1),
+            -1
+        )
+
+        # Forward propagation: Update start times of subsequent tracks
+        for i in range(total_tracks - 1):
+            current_start = self.parse_time(self.tracks[i]["start_time"].get())
+            current_length = self.parse_time(self.tracks[i]["song_length"].get())
+
+            if current_start is not None and current_length is not None:
+                next_start = current_start + current_length
+                self.tracks[i + 1]["start_time"].delete(0, tk.END)
+                self.tracks[i + 1]["start_time"].insert(0, f"{next_start // 60}:{next_start % 60:02}")
+
+        # Backward propagation: Update lengths of preceding tracks based on start times
+        for i in range(1, total_tracks):
+            current_start = self.parse_time(self.tracks[i]["start_time"].get())
+            prev_start = self.parse_time(self.tracks[i - 1]["start_time"].get())
+
+            if current_start is not None and prev_start is not None:
+                new_length = current_start - prev_start
+                if new_length >= 0:  # Avoid negative lengths
+                    self.tracks[i - 1]["song_length"].delete(0, tk.END)
+                    self.tracks[i - 1]["song_length"].insert(0, f"{new_length // 60}:{new_length % 60:02}")
+
+        # Update the length of the last track only if the checkbox is checked
+        if last_track_index != -1 and self.album_audio:
+            last_track_start = self.parse_time(self.tracks[last_track_index]["start_time"].get())
+            if last_track_start is not None:
+                # Calculate the length of the last track from the album's total duration
+                last_length = len(self.album_audio) // 1000 - last_track_start
+                self.tracks[last_track_index]["song_length"].delete(0, tk.END)
+                self.tracks[last_track_index]["song_length"].insert(0, f"{last_length // 60}:{last_length % 60:02}")
+
+
+
+
+
+
+
+
+
+    def on_track_time_change(self, track_index):
+        #Bind changes in start time or song length to update related fields.
+        track = self.tracks[track_index]
+
+        # Bind start time change
+        track["start_time"].bind(
+            "<FocusOut>", lambda e: self.update_lengths_and_start_times(changed_track_index=track_index)
+        )
+        # Bind song length change
+        track["song_length"].bind(
+            "<FocusOut>", lambda e: self.update_lengths_and_start_times(changed_track_index=track_index, is_length_change=True)
+        )
+
+
+
+    
+
     def __init__(self, root):
         self.root = root
         self.root.title("Album Splitter")
         self.tracks = []
         self.album_file = None
         self.album_audio = None
-        self.album_cover = None  # Store album cover path
+        self.album_cover = None
 
         # Display MP3 file name
         self.album_label = tk.Label(root, text="No album loaded", font=("Arial", 14))
@@ -91,54 +156,137 @@ class AlbumSplitterApp:
     def add_track(self, start_time=0):
         track_num = len(self.tracks) + 1
         track_frame = tk.Frame(self.scrollable_frame, borderwidth=1, relief="solid", pady=5)
+        track_index = len(self.tracks)  # Capture the index at creation time
+
+        # Create track details and UI elements
         track = {
             "frame": track_frame,
             "track_num": tk.Label(track_frame, text=f"Track {track_num}:", font=("Arial", 10)),
-            "minimize_button": tk.Button(track_frame, text="-", width=2, command=lambda: self.toggle_track(track)),
-            "details_frame": tk.Frame(track_frame)
+            "minimize_button": tk.Button(track_frame, text="-", width=1, height=1, command=lambda: self.toggle_track(track)),
+            "remove_button": tk.Button(
+                track_frame,
+                text="Remove",
+                command=lambda idx=track_index: self.remove_track(idx)  # Pass track index explicitly
+            ),
+            "details_frame": tk.Frame(track_frame),
+            "last_track_checkbox": tk.Checkbutton(track_frame, text="Last Track", command=lambda: self.set_last_track(track_index)),
         }
+
+        # Initialize the checkbox variable
+        track["last_track_checkbox"].var = tk.IntVar()
+        track["last_track_checkbox"].config(variable=track["last_track_checkbox"].var)
 
         # Track details
         track["start_time"] = tk.Entry(track["details_frame"], width=10)
+        track["song_length"] = tk.Entry(track["details_frame"], width=10)
         track["title"] = tk.Entry(track["details_frame"], width=20)
         track["album"] = tk.Entry(track["details_frame"], width=20)
-        track["artist"] = tk.Entry(track["details_frame"], width=20)  # New artist field
+        track["artist"] = tk.Entry(track["details_frame"], width=20)
         track["track_number"] = tk.Entry(track["details_frame"], width=5)
 
-        # Default values for the new track
+        # Default values
         track["start_time"].insert(0, start_time if isinstance(start_time, str) else f"{start_time//60}:{start_time%60:02}")
+        track["song_length"].insert(0, "0:00")
         track["title"].insert(0, f"Track {track_num}")
         track["album"].insert(0, "")
         track["artist"].insert(0, "")
         track["track_number"].insert(0, str(track_num))
 
-        # Pack track widgets in a structured order
+        # Pack widgets
         track["track_num"].pack(side=tk.LEFT)
         track["minimize_button"].pack(side=tk.LEFT)
+        track["last_track_checkbox"].pack(side=tk.RIGHT)
+        track["remove_button"].pack(side=tk.RIGHT)
         track["details_frame"].pack()
 
+        # Pack track details
         tk.Label(track["details_frame"], text="Start Time (mm:ss):").pack()
         track["start_time"].pack()
+        tk.Label(track["details_frame"], text="Length (mm:ss):").pack()
+        track["song_length"].pack()
         tk.Label(track["details_frame"], text="Title:").pack()
         track["title"].pack()
         tk.Label(track["details_frame"], text="Album:").pack()
         track["album"].pack()
-        tk.Label(track["details_frame"], text="Artist:").pack()  # Artist label and field
+        tk.Label(track["details_frame"], text="Artist:").pack()
         track["artist"].pack()
         tk.Label(track["details_frame"], text="Track #:").pack()
         track["track_number"].pack()
 
-        track_frame.pack(fill="x", padx=5, pady=5)  # Pack each track frame sequentially
+        track_frame.pack(fill="x", padx=5, pady=5)
         self.tracks.append(track)
 
+        # Bind change events
+        self.on_track_time_change(len(self.tracks) - 1)
+
+        # Update times for the new track
+        self.update_lengths_and_start_times()
+
+
+
+
+
+    def set_last_track(self, track_index):
+        for i, track in enumerate(self.tracks):
+            if i == track_index:
+                # Toggle the state of the checkbox
+                is_last = track["last_track_checkbox"].var.get() == 1
+
+                if is_last:
+                    # Mark this as the last track and disable all other checkboxes
+                    for j, other_track in enumerate(self.tracks):
+                        if j != i:
+                            other_track["last_track_checkbox"].config(state=tk.DISABLED)
+                    track["song_length"].config(state=tk.NORMAL)  # Allow manual editing of the last track length
+                else:
+                    # Unmark this track and re-enable all other checkboxes
+                    for other_track in self.tracks:
+                        other_track["last_track_checkbox"].config(state=tk.NORMAL)
+            else:
+                # Disable or enable other checkboxes based on the state of the selected one
+                state = tk.DISABLED if self.tracks[track_index]["last_track_checkbox"].var.get() == 1 else tk.NORMAL
+                track["last_track_checkbox"].config(state=state)
+
+
+
+
+    def remove_track(self, track_index):
+        #Remove the specified track and update remaining tracks.
+        
+        # Remove the track's frame from the UI
+        self.tracks[track_index]["frame"].destroy()
+        # Remove the track from the list
+        del self.tracks[track_index]
+
+        # Reorder remaining tracks
+        for i, track in enumerate(self.tracks):
+            track["track_num"].config(text=f"Track {i + 1}:")
+            track["track_number"].delete(0, tk.END)
+            track["track_number"].insert(0, str(i + 1))
+        
+        # Rebind Remove Buttons with updated indices
+        for i, track in enumerate(self.tracks):
+            track["remove_button"].config(command=lambda idx=i: self.remove_track(idx))
+
+        # Update subsequent tracks to ensure consistency
+        self.update_lengths_and_start_times()
+
+
+
+
     def toggle_track(self, track):
-        # Toggle visibility of the details frame
+        #Toggle visibility of the details frame and resize the track frame when minimized.
         if track["details_frame"].winfo_ismapped():
+            # Minimize the track
             track["details_frame"].pack_forget()
             track["minimize_button"].config(text="+")
+            track["frame"].config(height=20)  # Make the track smaller
         else:
+            # Maximize the track
             track["details_frame"].pack()
             track["minimize_button"].config(text="-")
+        track["frame"].config(height="")  # Reset to default height
+
 
     def apply_album_to_all(self):
         album_name = self.tracks[0]["album"].get()
@@ -181,9 +329,8 @@ class AlbumSplitterApp:
             messagebox.showerror("Error", f"Failed to embed album cover: {e}")
 
     def sanitize_filename(self, filename):
-        """
-        Remove characters that are invalid for file names.
-        """
+        #Remove characters that are invalid for file names.
+        
         import re
         return re.sub(r'[<>:"/\\|?*\n]', ' ', filename)
 
