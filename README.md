@@ -13,9 +13,9 @@ Splits an album's mp3 file into its individual songs.
 8. Run the albumsplitter.py file
 
 # Use
-1. Select your album .mp3 file by clicking the "Load Album File" button
-2. Set your first song title, the album, and the artist (Track # is 1 by default, start time is 0:00 by default)
-3. Set your album cover with the "Select Album Cover" Button
-4. Add your second, third, etc. tracks. Make sure to add in the start times for each of them
-5. Click the two apply to all buttons at the bottom. These apply the album title and artist that you set for the first song to all of the songs.
-6. Click the "Split Album" button, and wait.
+1. Select your album .mp3 file by dragging and dropping, or by double clicking the empty dark-grey box at the top of the window.
+2. Set the metadata at the top of the window. You can leave these blank.
+3. Set your album cover by dragging and dropping, or by clicking the album cover button.
+4. Use the 'S' key to 'split' the album. This creates a new song start time, and a new track. Very intuitive. You can also use the manual buttons at the bottom of the window.
+5. Set the titles, ensure all metadata is correct.
+6. Click the "Split Album" button, and wait (You can also export songs individually if you want to do so, just use each track's respective export button).
